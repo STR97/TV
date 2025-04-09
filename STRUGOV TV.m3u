@@ -5983,7 +5983,7 @@ http://u.vipl.one/high/7f8ctvy5pe/1555.m3u8
 #EXTGRP:Кинозалы
 http://u.vipl.one/high/7f8ctvy5pe/1556.m3u8
 #EXTINF:0 tvg-id="1557" tvg-logo="http://epg.cdntv.online/img/1557.png" group-title="Кинозалы", MS Magic HD
-#EXTGRP:Clarity STR
+#EXTGRP:Кинозалы
 http://u.vipl.one/high/7f8ctvy5pe/1557.m3u8
 #EXTINF:0 tvg-id="1558" tvg-logo="http://epg.cdntv.online/img/1558.png" group-title="Clarity STR", Clarity4K Netflix
 #EXTGRP:Clarity STR
@@ -6142,7 +6142,7 @@ http://u.vipl.one/high/7f8ctvy5pe/1668.m3u8
 #EXTGRP:Clarity STR
 http://u.vipl.one/high/7f8ctvy5pe/1669.m3u8
 #EXTINF:0 tvg-id="1670" tvg-logo="http://epg.cdntv.online/img/1670.png" group-title="Clarity STR", Clarity4K HBO series
-#EXTGRP:Кинозалы
+#EXTGRP:Clarity STR
 http://u.vipl.one/high/7f8ctvy5pe/1577.m3u8
 #EXTINF:0 tvg-id="1579" tvg-logo="http://epg.cdntv.online/img/1579.png" group-title="Развлекательные", Ювелирочка
 #EXTGRP:Развлекательные
