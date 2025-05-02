@@ -95,7 +95,7 @@
     let channels = [];
     let categories = new Set(['all']);
 
-    // Parse M3U/M3U8 playlist with group-title
+    // Parse M3U/M3U8 playlist with group-title or default category
     function parseM3U(content) {
       channels = [];
       const lines = content.split('\n');
@@ -139,12 +139,12 @@
       renderPlaylist(selectedCategory);
     }
 
-    // Load playlist from URL with allorigins.win proxy
+    // Load playlist from URL with improved proxy handling
     async function loadPlaylistFromUrl() {
       const urlInput = document.getElementById('playlist-url').value;
       if (!urlInput) return alert('Введите URL плейлиста');
 
-      // Use allorigins.win to bypass CORS
+      // Try allorigins.win proxy
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(urlInput)}`;
 
       try {
@@ -153,7 +153,7 @@
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP ошибка: ${response.status}`);
+          throw new Error(`Прокси ошибка: ${response.status}`);
         }
 
         const content = await response.text();
@@ -163,10 +163,13 @@
 
         parseM3U(content);
         document.getElementById('playlist-section').classList.remove('hidden');
-      } catch (error) {
-        // Fallback: try direct fetch for some cases
+      } catch (proxyError) {
+        // Fallback: direct fetch with error handling
         try {
-          const directResponse = await fetch(urlInput);
+          const directResponse = await fetch(urlInput, {
+            mode: 'cors',
+            credentials: 'omit'
+          });
           if (directResponse.ok) {
             const content = await directResponse.text();
             if (content.includes('#EXTM3U')) {
@@ -177,7 +180,7 @@
           }
           throw new Error('Прямой запрос не удался');
         } catch (directError) {
-          alert('Ошибка загрузки плейлиста: ' + error.message);
+          alert('Ошибка загрузки плейлиста: ' + proxyError.message + '. Попробуйте другой URL или проверьте доступность.');
         }
       }
     }
@@ -275,13 +278,17 @@
       const player = videojs('video-player', {
         liveui: true,
         fluid: true,
-        errorDisplay: true
+        errorDisplay: true,
+        hls: { withCredentials: true } // Попытка обработать авторизацию для HLS
       });
       player.src({ src: url, type: 'application/x-mpegURL' });
-      player.on('error', () => {
-        alert('Ошибка воспроизведения: ' + player.error().message);
+      player.on('error', (e) => {
+        console.log('Ошибка воспроизведения:', player.error());
+        alert('Ошибка воспроизведения: ' + (player.error()?.message || 'Невозможно загрузить поток. Проверьте URL или подключение.'));
       });
-      player.play();
+      player.play().catch(err => {
+        alert('Ошибка запуска: ' + err.message);
+      });
     }
   </script>
 </body>
