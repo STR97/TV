@@ -33,17 +33,13 @@
   </style>
 </head>
 <body class="bg-gradient text-gray-100 min-h-screen">
-  <!-- Header -->
   <header class="py-6 text-center">
     <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
       <span class="animate-title text-blue-400">STR BYPASS</span>
     </h1>
     <p class="mt-2 text-base sm:text-lg text-gray-400">Проверяйте, редактируйте и смотрите IPTV-плейлисты</p>
   </header>
-
-  <!-- Main Content -->
   <div class="container mx-auto p-4 sm:p-6">
-    <!-- Input Section -->
     <div class="bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg mb-8">
       <div class="flex flex-col sm:flex-row gap-4">
         <input id="playlist-url" type="text" placeholder="Введите URL плейлиста" class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base">
@@ -54,16 +50,12 @@
         <input id="playlist-file" type="file" accept=".m3u,.m3u8" class="mt-2 p-3 bg-gray-700 border border-gray-600 rounded-lg w-full text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
       </div>
     </div>
-
-    <!-- Category Filter -->
     <div id="category-filter" class="hidden bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg mb-8">
       <h2 class="text-xl sm:text-2xl font-semibold text-gray-100 mb-4">Фильтр по категориям</h2>
       <select id="category-select" onchange="filterByCategory()" class="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto">
         <option value="all">Все категории</option>
       </select>
     </div>
-
-    <!-- Playlist Table -->
     <div id="playlist-section" class="hidden bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg mb-8">
       <h2 class="text-xl sm:text-2xl font-semibold text-gray-100 mb-6">Список каналов</h2>
       <div class="overflow-x-auto">
@@ -84,18 +76,16 @@
         <button onclick="clearPlaylist()" class="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 btn">Очистить</button>
       </div>
     </div>
-
-    <!-- Video Player -->
     <div id="player-section" class="hidden mb-8">
       <video id="video-player" class="video-js vjs-default-skin" controls preload="auto" playsinline></video>
     </div>
   </div>
-
   <script>
     let channels = [];
     let categories = new Set(['all']);
+    const serverUrl = 'http://localhost:3000'; // Замените на ваш серверный URL (например, https://your-project.vercel.app)
 
-    // Parse M3U/M3U8 playlist with group-title or default category
+    // Enhanced M3U parser
     function parseM3U(content) {
       channels = [];
       const lines = content.split('\n');
@@ -103,13 +93,14 @@
 
       for (let line of lines) {
         line = line.trim();
-        if (line.startsWith('#EXTINF')) {
-          const titleMatch = line.match(/,(.+)/);
-          const groupMatch = line.match(/group-title="([^"]+)"/);
-          const title = titleMatch ? titleMatch[1] : 'Unknown';
-          const group = groupMatch ? groupMatch[1] : 'Без категории';
-          currentChannel = { title, url: '', group };
-          categories.add(group);
+        if (line.startsWith('#EXTINF:')) {
+          const match = line.match(/#EXTINF:-?\d+(?:[^,]+)?(?:\s*group-title="([^"]+)")?(?:[^,]+)?,(.+)/i);
+          if (match) {
+            const group = match[1] ? match[1] : 'Без категории';
+            const title = match[2] || 'Unknown';
+            currentChannel = { title, url: '', group };
+            categories.add(group);
+          }
         } else if (line && !line.startsWith('#') && currentChannel) {
           currentChannel.url = line;
           channels.push(currentChannel);
@@ -139,49 +130,20 @@
       renderPlaylist(selectedCategory);
     }
 
-    // Load playlist from URL with improved proxy handling
+    // Load playlist from URL via server proxy
     async function loadPlaylistFromUrl() {
       const urlInput = document.getElementById('playlist-url').value;
       if (!urlInput) return alert('Введите URL плейлиста');
 
-      // Try allorigins.win proxy
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(urlInput)}`;
-
       try {
-        const response = await fetch(proxyUrl, {
-          headers: { 'Accept': 'text/plain, application/x-mpegURL, */*' }
-        });
-
-        if (!response.ok) {
-          throw new Error(`Прокси ошибка: ${response.status}`);
-        }
-
+        const response = await fetch(`${serverUrl}/proxy?url=${encodeURIComponent(urlInput)}`);
+        if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
         const content = await response.text();
-        if (!content || !content.includes('#EXTM3U')) {
-          throw new Error('Невалидный M3U-плейлист');
-        }
-
+        if (!content.includes('#EXTM3U')) throw new Error('Невалидный M3U-плейлист');
         parseM3U(content);
         document.getElementById('playlist-section').classList.remove('hidden');
-      } catch (proxyError) {
-        // Fallback: direct fetch with error handling
-        try {
-          const directResponse = await fetch(urlInput, {
-            mode: 'cors',
-            credentials: 'omit'
-          });
-          if (directResponse.ok) {
-            const content = await directResponse.text();
-            if (content.includes('#EXTM3U')) {
-              parseM3U(content);
-              document.getElementById('playlist-section').classList.remove('hidden');
-              return;
-            }
-          }
-          throw new Error('Прямой запрос не удался');
-        } catch (directError) {
-          alert('Ошибка загрузки плейлиста: ' + proxyError.message + '. Попробуйте другой URL или проверьте доступность.');
-        }
+      } catch (error) {
+        alert('Ошибка загрузки плейлиста: ' + error.message);
       }
     }
 
@@ -279,7 +241,7 @@
         liveui: true,
         fluid: true,
         errorDisplay: true,
-        hls: { withCredentials: true } // Попытка обработать авторизацию для HLS
+        hls: { withCredentials: true }
       });
       player.src({ src: url, type: 'application/x-mpegURL' });
       player.on('error', (e) => {
