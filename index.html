@@ -103,28 +103,35 @@
       renderPlaylist();
     }
 
-    // Load playlist from URL with CORS proxy and redirect handling
+    // Load playlist from URL with allorigins.win proxy
     async function loadPlaylistFromUrl() {
       const urlInput = document.getElementById('playlist-url').value;
       if (!urlInput) return alert('Введите URL плейлиста');
 
-      // Use CORS proxy to handle cross-origin requests
-      const corsProxy = 'https://cors-anywhere.herokuapp.com/';
-      let finalUrl = urlInput;
+      // Use allorigins.win to bypass CORS and handle redirects
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(urlInput)}`;
 
-      // Handle shortened URLs by following redirects
       try {
-        const response = await fetch(corsProxy + urlInput, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        const response = await fetch(proxyUrl, {
+          headers: { 'Accept': 'text/plain, application/x-mpegURL' }
         });
-        if (response.ok) {
-          finalUrl = response.url.replace(corsProxy, '');
-          const content = await response.text();
-          parseM3U(content);
-          document.getElementById('playlist-section').classList.remove('hidden');
-        } else {
-          throw new Error('Не удалось загрузить плейлист');
+
+        if (!response.ok) {
+          throw new Error(`HTTP ошибка: ${response.status}`);
         }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('text/plain') && !contentType.includes('application/x-mpegURL')) {
+          throw new Error('Неподдерживаемый тип контента: ' + contentType);
+        }
+
+        const content = await response.text();
+        if (!content || !content.includes('#EXTM3U')) {
+          throw new Error('Невалидный M3U-плейлист');
+        }
+
+        parseM3U(content);
+        document.getElementById('playlist-section').classList.remove('hidden');
       } catch (error) {
         alert('Ошибка загрузки плейлиста: ' + error.message);
       }
