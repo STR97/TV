@@ -83,28 +83,33 @@
   <script>
     let channels = [];
     let categories = new Set(['all']);
-    const serverUrl = 'https://tv-cyan-pi.vercel.app'; // Используем URL Vercel
+    const serverUrl = 'https://tv-cyan-pi.vercel.app';
 
-    // Enhanced M3U parser
+    // Enhanced M3U parser with support for #EXTGRP
     function parseM3U(content) {
       channels = [];
       const lines = content.split('\n');
       let currentChannel = null;
+      let currentGroup = 'Без категории';
 
       for (let line of lines) {
         line = line.trim();
-        if (line.startsWith('#EXTINF:')) {
-          // Улучшенное регулярное выражение для парсинга
+        if (line.startsWith('#EXTGRP:')) {
+          currentGroup = line.replace('#EXTGRP:', '').trim() || 'Без категории';
+          categories.add(currentGroup);
+        } else if (line.startsWith('#EXTINF:')) {
           const match = line.match(/#EXTINF:-?\d+.*?group-title="([^"]*)"(?:.*?,(.*))|.*?,(.*)/i);
-          if (match) {
-            const group = match[1] || 'Без категории';
-            const title = match[2] || match[3] || 'Unknown';
-            currentChannel = { title, url: '', group };
-            categories.add(group);
-          }
+          const title = match ? (match[2] || match[3] || 'Unknown') : line.split(',').pop().trim();
+          const groupFromExtinf = match && match[1] ? match[1] : null;
+          currentChannel = {
+            title: title,
+            url: '',
+            group: groupFromExtinf || currentGroup
+          };
+          if (groupFromExtinf) categories.add(groupFromExtinf);
         } else if (line && !line.startsWith('#') && currentChannel) {
           currentChannel.url = line;
-          currentChannel.token = extractToken(line); // Извлекаем токен из URL, если есть
+          currentChannel.token = extractToken(line);
           channels.push(currentChannel);
           currentChannel = null;
         }
@@ -143,14 +148,13 @@
       const urlInput = document.getElementById('playlist-url').value;
       if (!urlInput) return alert('Введите URL плейлиста');
 
-      // Извлекаем username и password из URL, если они есть
       const urlParams = new URLSearchParams(urlInput.split('?')[1] || '');
       const username = urlParams.get('username') || '';
       const password = urlParams.get('password') || '';
 
       try {
         const response = await fetch(`${serverUrl}/proxy?url=${encodeURIComponent(urlInput)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
-        if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+        if (!response.ok) throw new Error(`Ошибка сервера: ${response.status} - ${await response.text()}`);
         const content = await response.text();
         if (!content.includes('#EXTM3U')) throw new Error('Невалидный M3U-плейлист');
         parseM3U(content);
@@ -235,7 +239,8 @@
     function downloadPlaylist() {
       let m3uContent = '#EXTM3U\n';
       channels.forEach(channel => {
-        m3uContent += `#EXTINF:-1 group-title="${channel.group}",${channel.title}\n${channel.url}\n`;
+        m3uContent += `#EXTGRP:${channel.group}\n`;
+        m3uContent += `#EXTINF:-1,${channel.title}\n${channel.url}\n`;
       });
       const blob = new Blob([m3uContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
