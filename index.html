@@ -83,7 +83,7 @@
   <script>
     let channels = [];
     let categories = new Set(['all']);
-    const serverUrl = 'http://localhost:3000'; // Замените на ваш серверный URL (например, https://your-project.vercel.app)
+    const serverUrl = 'https://tv-cyan-pi.vercel.app'; // Используем URL Vercel
 
     // Enhanced M3U parser
     function parseM3U(content) {
@@ -94,21 +94,29 @@
       for (let line of lines) {
         line = line.trim();
         if (line.startsWith('#EXTINF:')) {
-          const match = line.match(/#EXTINF:-?\d+(?:[^,]+)?(?:\s*group-title="([^"]+)")?(?:[^,]+)?,(.+)/i);
+          // Улучшенное регулярное выражение для парсинга
+          const match = line.match(/#EXTINF:-?\d+.*?group-title="([^"]*)"(?:.*?,(.*))|.*?,(.*)/i);
           if (match) {
-            const group = match[1] ? match[1] : 'Без категории';
-            const title = match[2] || 'Unknown';
+            const group = match[1] || 'Без категории';
+            const title = match[2] || match[3] || 'Unknown';
             currentChannel = { title, url: '', group };
             categories.add(group);
           }
         } else if (line && !line.startsWith('#') && currentChannel) {
           currentChannel.url = line;
+          currentChannel.token = extractToken(line); // Извлекаем токен из URL, если есть
           channels.push(currentChannel);
           currentChannel = null;
         }
       }
       updateCategoryFilter();
       renderPlaylist();
+    }
+
+    // Извлечение токена из URL
+    function extractToken(url) {
+      const match = url.match(/token=([^&]+)/);
+      return match ? match[1] : null;
     }
 
     // Update category filter dropdown
@@ -135,8 +143,13 @@
       const urlInput = document.getElementById('playlist-url').value;
       if (!urlInput) return alert('Введите URL плейлиста');
 
+      // Извлекаем username и password из URL, если они есть
+      const urlParams = new URLSearchParams(urlInput.split('?')[1] || '');
+      const username = urlParams.get('username') || '';
+      const password = urlParams.get('password') || '';
+
       try {
-        const response = await fetch(`${serverUrl}/proxy?url=${encodeURIComponent(urlInput)}`);
+        const response = await fetch(`${serverUrl}/proxy?url=${encodeURIComponent(urlInput)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
         if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
         const content = await response.text();
         if (!content.includes('#EXTM3U')) throw new Error('Невалидный M3U-плейлист');
@@ -172,7 +185,7 @@
           <td class="p-3 border border-gray-600">${channel.group}</td>
           <td class="p-3 border border-gray-600 truncate">${channel.url}</td>
           <td class="p-3 border border-gray-600">
-            <button onclick="playChannel('${encodeURIComponent(channel.url)}')" class="text-green-400 hover:text-green-300 mr-2">Воспроизвести</button>
+            <button onclick="playChannel('${encodeURIComponent(channel.url)}', '${encodeURIComponent(channel.token || '')}')" class="text-green-400 hover:text-green-300 mr-2">Воспроизвести</button>
             <button onclick="editChannel(${index})" class="text-blue-400 hover:text-blue-300 mr-2">Редактировать</button>
             <button onclick="deleteChannel(${index})" class="text-red-400 hover:text-red-300">Удалить</button>
           </td>
@@ -190,6 +203,7 @@
         channels[index].title = newTitle;
         channels[index].url = newUrl;
         channels[index].group = newGroup;
+        channels[index].token = extractToken(newUrl);
         categories.add(newGroup);
         updateCategoryFilter();
         renderPlaylist(document.getElementById('category-select').value);
@@ -232,9 +246,12 @@
       URL.revokeObjectURL(url);
     }
 
-    // Play channel
-    function playChannel(encodedUrl) {
+    // Play channel through server proxy
+    function playChannel(encodedUrl, encodedToken) {
       const url = decodeURIComponent(encodedUrl);
+      const token = decodeURIComponent(encodedToken);
+      const streamUrl = `${serverUrl}/stream?url=${encodeURIComponent(url)}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+      
       const playerSection = document.getElementById('player-section');
       playerSection.classList.remove('hidden');
       const player = videojs('video-player', {
@@ -243,7 +260,7 @@
         errorDisplay: true,
         hls: { withCredentials: true }
       });
-      player.src({ src: url, type: 'application/x-mpegURL' });
+      player.src({ src: streamUrl, type: 'application/x-mpegURL' });
       player.on('error', (e) => {
         console.log('Ошибка воспроизведения:', player.error());
         alert('Ошибка воспроизведения: ' + (player.error()?.message || 'Невозможно загрузить поток. Проверьте URL или подключение.'));
