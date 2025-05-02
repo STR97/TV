@@ -17,7 +17,10 @@ app.get('/proxy', (req, res) => {
     url: url,
     method: 'GET',
     followAllRedirects: true,
-    auth: username && password ? { user: username, pass: password } : undefined
+    auth: username && password ? { user: username, pass: password } : undefined,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
   }, (error, response, body) => {
     if (error || response.statusCode !== 200) {
       return res.status(500).send('Error fetching playlist: ' + (error ? error.message : 'Status ' + response.statusCode));
@@ -38,13 +41,21 @@ app.get('/stream', (req, res) => {
     method: 'GET',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Referer': 'https://tv-cyan-pi.vercel.app'
     }
   };
 
-  request(options).pipe(res).on('error', (err) => {
-    res.status(500).send('Error streaming: ' + err.message);
-  });
+  request(options)
+    .on('response', (response) => {
+      if (response.statusCode !== 200) {
+        res.status(response.statusCode).send('Stream error: Status ' + response.statusCode);
+      }
+    })
+    .on('error', (err) => {
+      res.status(500).send('Error streaming: ' + err.message);
+    })
+    .pipe(res);
 });
 
 app.listen(process.env.PORT || 3000, () => {
