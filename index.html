@@ -46,7 +46,7 @@
         <button onclick="loadPlaylistFromUrl()" class="bg-blue-500 text-white px-4 sm:px-6 py-3 rounded-lg hover:bg-blue-600 btn">Загрузить</button>
       </div>
       <div class="mt-6">
-        <label for="playlist-file" class="block text-sm font-medium text-gray-300">Загрузить файл .m3u/.m3u8</label>
+        <label for="playlist-file" class="block text-sm font-medium text-gray-300">Загрузить файл .m3u/.m3u8 (используйте другое приложение, если встроенный проводник не работает)</label>
         <input id="playlist-file" type="file" accept=".m3u,.m3u8" class="mt-2 p-3 bg-gray-700 border border-gray-600 rounded-lg w-full text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
       </div>
     </div>
@@ -85,33 +85,33 @@
     let categories = new Set(['all']);
     const serverUrl = 'https://tv-cyan-pi.vercel.app';
 
-    // Enhanced M3U parser with support for #EXTGRP
+    // Enhanced M3U parser with support for #EXTGRP and title-based groups
     function parseM3U(content) {
       channels = [];
       const lines = content.split('\n');
-      let currentChannel = null;
       let currentGroup = 'Без категории';
 
-      for (let line of lines) {
-        line = line.trim();
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
         if (line.startsWith('#EXTGRP:')) {
           currentGroup = line.replace('#EXTGRP:', '').trim() || 'Без категории';
           categories.add(currentGroup);
         } else if (line.startsWith('#EXTINF:')) {
-          const match = line.match(/#EXTINF:-?\d+.*?group-title="([^"]*)"(?:.*?,(.*))|.*?,(.*)/i);
-          const title = match ? (match[2] || match[3] || 'Unknown') : line.split(',').pop().trim();
-          const groupFromExtinf = match && match[1] ? match[1] : null;
-          currentChannel = {
+          const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
+          const titleMatch = line.match(/#EXTINF:-?\d+.*?group-title="([^"]*)"(?:.*?,(.*))|.*?,(.*)/i) || [];
+          const title = titleMatch[2] || titleMatch[3] || line.split(',').pop().trim() || 'Unknown';
+          const groupFromExtinf = titleMatch[1] || null;
+          const channel = {
             title: title,
-            url: '',
-            group: groupFromExtinf || currentGroup
+            url: nextLine && !nextLine.startsWith('#') ? nextLine : '',
+            group: groupFromExtinf || (title.includes('/') ? title.split('/')[1].trim() : currentGroup)
           };
-          if (groupFromExtinf) categories.add(groupFromExtinf);
-        } else if (line && !line.startsWith('#') && currentChannel) {
-          currentChannel.url = line;
-          currentChannel.token = extractToken(line);
-          channels.push(currentChannel);
-          currentChannel = null;
+          if (channel.url) {
+            channel.token = extractToken(channel.url);
+            channels.push(channel);
+            if (groupFromExtinf) categories.add(groupFromExtinf);
+            else if (title.includes('/')) categories.add(title.split('/')[1].trim());
+          }
         }
       }
       updateCategoryFilter();
@@ -230,7 +230,6 @@
         document.getElementById('category-select').innerHTML = '<option value="all">Все категории</option>';
         document.getElementById('category-filter').classList.add('hidden');
         renderPlaylist();
-        document.getElementById('playlist-section').classList.add('hidden');
         document.getElementById('player-section').classList.add('hidden');
       }
     }
