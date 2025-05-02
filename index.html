@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STR BYPASS - IPTV Playlist Checker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+  <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+  <style>
+    .video-js { width: 100%; max-width: 900px; margin: 0 auto; border-radius: 8px; }
+    #playlist-table tbody tr:hover { background-color: #2d3748; cursor: pointer; transition: background-color 0.3s; }
+    .animate-title {
+      display: inline-block;
+      animation: glow 2s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from { text-shadow: 0 0 5px #60a5fa, 0 0 10px #60a5fa; }
+      to { text-shadow: 0 0 20px #3b82f6, 0 0 30px #3b82f6; }
+    }
+    .container { max-width: 1200px; }
+    .bg-gradient { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); }
+    .btn { transition: transform 0.2s, background-color 0.3s; }
+    .btn:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body class="bg-gradient text-gray-100 min-h-screen">
+  <!-- Header -->
+  <header class="py-6 text-center">
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight">
+      <span class="animate-title text-blue-400">STR BYPASS</span>
+    </h1>
+    <p class="mt-2 text-lg text-gray-400">Проверяйте, редактируйте и смотрите IPTV-плейлисты</p>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container mx-auto p-6">
+    <!-- Input Section -->
+    <div class="bg-gray-800 p-8 rounded-xl shadow-lg mb-8">
+      <div class="flex flex-col md:flex-row gap-4">
+        <input id="playlist-url" type="text" placeholder="Введите URL плейлиста" class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button onclick="loadPlaylistFromUrl()" class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 btn">Загрузить</button>
+      </div>
+      <div class="mt-6">
+        <label for="playlist-file" class="block text-sm font-medium text-gray-300">Загрузить файл .m3u/.m3u8</label>
+        <input id="playlist-file" type="file" accept=".m3u,.m3u8" class="mt-2 p-3 bg-gray-700 border border-gray-600 rounded-lg w-full text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+    </div>
+
+    <!-- Playlist Table -->
+    <div id="playlist-section" class="hidden bg-gray-800 p-8 rounded-xl shadow-lg mb-8">
+      <h2 class="text-2xl font-semibold text-gray-100 mb-6">Список каналов</h2>
+      <div class="overflow-x-auto">
+        <table id="playlist-table" class="w-full border-collapse text-gray-200">
+          <thead>
+            <tr class="bg-gray-700">
+              <th class="p-3 border border-gray-600">Название</th>
+              <th class="p-3 border border-gray-600">URL</th>
+              <th class="p-3 border border-gray-600">Действия</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="mt-6 flex gap-4">
+        <button onclick="downloadPlaylist()" class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 btn">Скачать плейлист</button>
+        <button onclick="clearPlaylist()" class="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 btn">Очистить</button>
+      </div>
+    </div>
+
+    <!-- Video Player -->
+    <div id="player-section" class="hidden mb-8">
+      <video id="video-player" class="video-js vjs-default-skin" controls preload="auto"></video>
+    </div>
+  </div>
+
+  <script>
+    let channels = [];
+
+    // Parse M3U/M3U8 playlist
+    function parseM3U(content) {
+      channels = [];
+      const lines = content.split('\n');
+      let currentChannel = null;
+
+      for (let line of lines) {
+        line = line.trim();
+        if (line.startsWith('#EXTINF')) {
+          const titleMatch = line.match(/,(.+)/);
+          currentChannel = { title: titleMatch ? titleMatch[1] : 'Unknown', url: '' };
+        } else if (line && !line.startsWith('#') && currentChannel) {
+          currentChannel.url = line;
+          channels.push(currentChannel);
+          currentChannel = null;
+        }
+      }
+      renderPlaylist();
+    }
+
+    // Load playlist from URL
+    async function loadPlaylistFromUrl() {
+      const url = document.getElementById('playlist-url').value;
+      if (!url) return alert('Введите URL плейлиста');
+      try {
+        const response = await fetch(url);
+        const content = await response.text();
+        parseM3U(content);
+        document.getElementById('playlist-section').classList.remove('hidden');
+      } catch (error) {
+        alert('Ошибка загрузки плейлиста: ' + error.message);
+      }
+    }
+
+    // Load playlist from file
+    document.getElementById('playlist-file').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        parseM3U(e.target.result);
+        document.getElementById('playlist-section').classList.remove('hidden');
+      };
+      reader.readAsText(file);
+    });
+
+    // Render playlist table
+    function renderPlaylist() {
+      const tbody = document.querySelector('#playlist-table tbody');
+      tbody.innerHTML = '';
+      channels.forEach((channel, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="p-3 border border-gray-600">${channel.title}</td>
+          <td class="p-3 border border-gray-600">${channel.url}</td>
+          <td class="p-3 border border-gray-600">
+            <button onclick="editChannel(${index})" class="text-blue-400 hover:text-blue-300">Редактировать</button>
+            <button onclick="deleteChannel(${index})" class="text-red-400 hover:text-red-300 ml-4">Удалить</button>
+          </td>
+        `;
+        row.onclick = () => playChannel(channel.url);
+        tbody.appendChild(row);
+      });
+    }
+
+    // Edit channel
+    function editChannel(index) {
+      const newTitle = prompt('Введите новое название канала:', channels[index].title);
+      const newUrl = prompt('Введите новый URL канала:', channels[index].url);
+      if (newTitle && newUrl) {
+        channels[index].title = newTitle;
+        channels[index].url = newUrl;
+        renderPlaylist();
+      }
+    }
+
+    // Delete channel
+    function deleteChannel(index) {
+      if (confirm('Удалить канал?')) {
+        channels.splice(index, 1);
+        renderPlaylist();
+      }
+    }
+
+    // Clear playlist
+    function clearPlaylist() {
+      if (confirm('Очистить плейлист?')) {
+        channels = [];
+        renderPlaylist();
+        document.getElementById('playlist-section').classList.add('hidden');
+        document.getElementById('player-section').classList.add('hidden');
+      }
+    }
+
+    // Download playlist
+    function downloadPlaylist() {
+      let m3uContent = '#EXTM3U\n';
+      channels.forEach(channel => {
+        m3uContent += `#EXTINF:-1,${channel.title}\n${channel.url}\n`;
+      });
+      const blob = new Blob([m3uContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'edited_playlist.m3u';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Play channel
+    function playChannel(url) {
+      const playerSection = document.getElementById('player-section');
+      playerSection.classList.remove('hidden');
+      const player = videojs('video-player');
+      player.src({ src: url, type: 'application/x-mpegURL' });
+      player.play();
+    }
+  </script>
+</body>
+</html>
