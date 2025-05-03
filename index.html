@@ -17,7 +17,7 @@
             const [loading, setLoading] = React.useState(true);
 
             React.useEffect(() => {
-                fetch('http://localhost:8000/configs')
+                fetch('/api/configs')
                     .then(response => response.json())
                     .then(data => {
                         setConfigs(data);
