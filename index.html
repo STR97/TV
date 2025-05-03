@@ -1,278 +1,67 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>STR BYPASS - IPTV Playlist Checker</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
-  <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
-  <style>
-    .video-js { width: 100%; max-width: 900px; margin: 0 auto; border-radius: 8px; }
-    #playlist-table tbody tr:hover { background-color: #2d3748; cursor: pointer; transition: background-color 0.3s; }
-    .animate-title {
-      display: inline-block;
-      animation: glow 2s ease-in-out infinite alternate;
-    }
-    @keyframes glow {
-      from { text-shadow: 0 0 5px #60a5fa, 0 0 10px #60a5fa; }
-      to { text-shadow: 0 0 20px #3b82f6, 0 0 30px #3b82f6; }
-    }
-    .container { max-width: 1200px; }
-    .bg-gradient { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); }
-    .btn { transition: transform 0.2s, background-color 0.3s; }
-    .btn:hover { transform: translateY(-2px); }
-    .truncate { max-width: 200px; }
-    @media (max-width: 640px) {
-      #playlist-table { font-size: 12px; }
-      #playlist-table th, #playlist-table td { padding: 6px; }
-      .video-js { max-width: 100%; height: auto; }
-      .btn { padding: 8px; font-size: 12px; }
-      .truncate { max-width: 100px; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLESS Config Checker</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.15/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient text-gray-100 min-h-screen">
-  <header class="py-6 text-center">
-    <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight">
-      <span class="animate-title text-blue-400">STR BYPASS</span>
-    </h1>
-    <p class="mt-2 text-base sm:text-lg text-gray-400">Проверяйте, редактируйте и смотрите IPTV-плейлисты</p>
-  </header>
-  <div class="container mx-auto p-4 sm:p-6">
-    <div class="bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg mb-8">
-      <div class="flex flex-col sm:flex-row gap-4">
-        <input id="playlist-url" type="text" placeholder="Введите URL плейлиста" class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base">
-        <button onclick="loadPlaylistFromUrl()" class="bg-blue-500 text-white px-4 sm:px-6 py-3 rounded-lg hover:bg-blue-600 btn">Загрузить</button>
-      </div>
-      <div class="mt-6">
-        <label for="playlist-file" class="block text-sm font-medium text-gray-300">Загрузить файл .m3u/.m3u8 (используйте другое приложение, если встроенный проводник не работает)</label>
-        <input id="playlist-file" type="file" accept=".m3u,.m3u8" class="mt-2 p-3 bg-gray-700 border border-gray-600 rounded-lg w-full text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-      </div>
-    </div>
-    <div id="category-filter" class="hidden bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg mb-8">
-      <h2 class="text-xl sm:text-2xl font-semibold text-gray-100 mb-4">Фильтр по категориям</h2>
-      <select id="category-select" onchange="filterByCategory()" class="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto">
-        <option value="all">Все категории</option>
-      </select>
-    </div>
-    <div id="playlist-section" class="hidden bg-gray-800 p-6 sm:p-8 rounded-xl shadow-lg mb-8">
-      <h2 class="text-xl sm:text-2xl font-semibold text-gray-100 mb-6">Список каналов</h2>
-      <div class="overflow-x-auto">
-        <table id="playlist-table" class="w-full border-collapse text-gray-200">
-          <thead>
-            <tr class="bg-gray-700">
-              <th class="p-3 border border-gray-600">Название</th>
-              <th class="p-3 border border-gray-600">Категория</th>
-              <th class="p-3 border border-gray-600">URL</th>
-              <th class="p-3 border border-gray-600">Действия</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="mt-6 flex flex-col sm:flex-row gap-4">
-        <button onclick="downloadPlaylist()" class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 btn">Скачать плейлист</button>
-        <button onclick="clearPlaylist()" class="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 btn">Очистить</button>
-      </div>
-    </div>
-    <div id="player-section" class="hidden mb-8">
-      <video id="video-player" class="video-js vjs-default-skin" controls preload="auto" playsinline></video>
-    </div>
-  </div>
-  <script>
-    let channels = [];
-    let categories = new Set(['all']);
-    const serverUrl = 'https://tv-cyan-pi.vercel.app';
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        function ConfigTable() {
+            const [configs, setConfigs] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
 
-    // Enhanced M3U parser with support for #EXTGRP and title-based groups
-    function parseM3U(content) {
-      channels = [];
-      const lines = content.split('\n');
-      let currentGroup = 'Без категории';
+            React.useEffect(() => {
+                fetch('http://localhost:8000/configs')
+                    .then(response => response.json())
+                    .then(data => {
+                        setConfigs(data);
+                        setLoading(false);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching configs:', error);
+                        setLoading(false);
+                    });
+            }, []);
 
-      for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
-        if (line.startsWith('#EXTGRP:')) {
-          currentGroup = line.replace('#EXTGRP:', '').trim() || 'Без категории';
-          categories.add(currentGroup);
-        } else if (line.startsWith('#EXTINF:')) {
-          const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
-          const titleMatch = line.match(/#EXTINF:-?\d+.*?group-title="([^"]*)"(?:.*?,(.*))|.*?,(.*)/i) || [];
-          const title = titleMatch[2] || titleMatch[3] || line.split(',').pop().trim() || 'Unknown';
-          const groupFromExtinf = titleMatch[1] || null;
-          const channel = {
-            title: title,
-            url: nextLine && !nextLine.startsWith('#') ? nextLine : '',
-            group: groupFromExtinf || (title.includes('/') ? title.split('/')[1].trim() : currentGroup)
-          };
-          if (channel.url) {
-            channel.token = extractToken(channel.url);
-            channels.push(channel);
-            if (groupFromExtinf) categories.add(groupFromExtinf);
-            else if (title.includes('/')) categories.add(title.split('/')[1].trim());
-          }
+            if (loading) {
+                return <div className="text-center mt-10">Loading...</div>;
+            }
+
+            return (
+                <div className="container mx-auto p-4">
+                    <h1 className="text-2xl font-bold mb-4">Working VLESS Configurations</h1>
+                    <table className="w-full border-collapse border">
+                        <thead>
+                            <tr className="bg-gray-200">
+                                <th className="border p-2">Protocol</th>
+                                <th className="border p-2">IP</th>
+                                <th className="border p-2">Port</th>
+                                <th className="border p-2">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {configs.map((config, index) => (
+                                <tr key={index} className="hover:bg-gray-100">
+                                    <td className="border p-2">{config.protocol}</td>
+                                    <td className="border p-2">{config.ip}</td>
+                                    <td className="border p-2">{config.port}</td>
+                                    <td className="border p-2 text-green-600">Working</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
         }
-      }
-      updateCategoryFilter();
-      renderPlaylist();
-    }
 
-    // Извлечение токена из URL
-    function extractToken(url) {
-      const match = url.match(/token=([^&]+)/);
-      return match ? match[1] : null;
-    }
-
-    // Update category filter dropdown
-    function updateCategoryFilter() {
-      const select = document.getElementById('category-select');
-      select.innerHTML = '<option value="all">Все категории</option>';
-      [...categories].filter(cat => cat !== 'all').forEach(category => {
-        const option = document.createElement('option');
-        option.value = category;
-        option.textContent = category;
-        select.appendChild(option);
-      });
-      document.getElementById('category-filter').classList.remove('hidden');
-    }
-
-    // Filter channels by category
-    function filterByCategory() {
-      const selectedCategory = document.getElementById('category-select').value;
-      renderPlaylist(selectedCategory);
-    }
-
-    // Load playlist from URL via server proxy
-    async function loadPlaylistFromUrl() {
-      const urlInput = document.getElementById('playlist-url').value;
-      if (!urlInput) return alert('Введите URL плейлиста');
-
-      const urlParams = new URLSearchParams(urlInput.split('?')[1] || '');
-      const username = urlParams.get('username') || '';
-      const password = urlParams.get('password') || '';
-
-      try {
-        const response = await fetch(`${serverUrl}/proxy?url=${encodeURIComponent(urlInput)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`);
-        if (!response.ok) throw new Error(`Ошибка сервера: ${response.status} - ${await response.text()}`);
-        const content = await response.text();
-        if (!content.includes('#EXTM3U')) throw new Error('Невалидный M3U-плейлист');
-        parseM3U(content);
-        document.getElementById('playlist-section').classList.remove('hidden');
-      } catch (error) {
-        alert('Ошибка загрузки плейлиста: ' + error.message);
-      }
-    }
-
-    // Load playlist from file
-    document.getElementById('playlist-file').addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        parseM3U(e.target.result);
-        document.getElementById('playlist-section').classList.remove('hidden');
-      };
-      reader.readAsText(file);
-    });
-
-    // Render playlist table
-    function renderPlaylist(selectedCategory = 'all') {
-      const tbody = document.querySelector('#playlist-table tbody');
-      tbody.innerHTML = '';
-      const filteredChannels = selectedCategory === 'all' ? channels : channels.filter(c => c.group === selectedCategory);
-      
-      filteredChannels.forEach((channel, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td class="p-3 border border-gray-600">${channel.title}</td>
-          <td class="p-3 border border-gray-600">${channel.group}</td>
-          <td class="p-3 border border-gray-600 truncate">${channel.url}</td>
-          <td class="p-3 border border-gray-600">
-            <button onclick="playChannel('${encodeURIComponent(channel.url)}', '${encodeURIComponent(channel.token || '')}')" class="text-green-400 hover:text-green-300 mr-2">Воспроизвести</button>
-            <button onclick="editChannel(${index})" class="text-blue-400 hover:text-blue-300 mr-2">Редактировать</button>
-            <button onclick="deleteChannel(${index})" class="text-red-400 hover:text-red-300">Удалить</button>
-          </td>
-        `;
-        tbody.appendChild(row);
-      });
-    }
-
-    // Edit channel
-    function editChannel(index) {
-      const newTitle = prompt('Введите новое название канала:', channels[index].title);
-      const newUrl = prompt('Введите новый URL канала:', channels[index].url);
-      const newGroup = prompt('Введите категорию канала:', channels[index].group);
-      if (newTitle && newUrl && newGroup) {
-        channels[index].title = newTitle;
-        channels[index].url = newUrl;
-        channels[index].group = newGroup;
-        channels[index].token = extractToken(newUrl);
-        categories.add(newGroup);
-        updateCategoryFilter();
-        renderPlaylist(document.getElementById('category-select').value);
-      }
-    }
-
-    // Delete channel
-    function deleteChannel(index) {
-      if (confirm('Удалить канал?')) {
-        channels.splice(index, 1);
-        renderPlaylist(document.getElementById('category-select').value);
-      }
-    }
-
-    // Clear playlist
-    function clearPlaylist() {
-      if (confirm('Очистить плейлист?')) {
-        channels = [];
-        categories = new Set(['all']);
-        document.getElementById('category-select').innerHTML = '<option value="all">Все категории</option>';
-        document.getElementById('category-filter').classList.add('hidden');
-        renderPlaylist();
-        document.getElementById('player-section').classList.add('hidden');
-      }
-    }
-
-    // Download playlist
-    function downloadPlaylist() {
-      let m3uContent = '#EXTM3U\n';
-      channels.forEach(channel => {
-        m3uContent += `#EXTGRP:${channel.group}\n`;
-        m3uContent += `#EXTINF:-1,${channel.title}\n${channel.url}\n`;
-      });
-      const blob = new Blob([m3uContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'edited_playlist.m3u';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // Play channel through server proxy
-    function playChannel(encodedUrl, encodedToken) {
-      const url = decodeURIComponent(encodedUrl);
-      const token = decodeURIComponent(encodedToken);
-      const streamUrl = `${serverUrl}/stream?url=${encodeURIComponent(url)}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
-      
-      const playerSection = document.getElementById('player-section');
-      playerSection.classList.remove('hidden');
-      const player = videojs('video-player', {
-        liveui: true,
-        fluid: true,
-        errorDisplay: true,
-        hls: { withCredentials: true }
-      });
-      player.src({ src: streamUrl, type: 'application/x-mpegURL' });
-      player.on('error', (e) => {
-        console.log('Ошибка воспроизведения:', player.error());
-        alert('Ошибка воспроизведения: ' + (player.error()?.message || 'Невозможно загрузить поток. Проверьте URL или подключение.'));
-      });
-      player.play().catch(err => {
-        alert('Ошибка запуска: ' + err.message);
-      });
-    }
-  </script>
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ConfigTable />);
+    </script>
 </body>
 </html>
