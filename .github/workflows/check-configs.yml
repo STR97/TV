@@ -36,4 +36,6 @@ jobs:
           git commit -m "Update working configurations" || echo "No changes to commit"
           git push
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ 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 }}
+
+          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
